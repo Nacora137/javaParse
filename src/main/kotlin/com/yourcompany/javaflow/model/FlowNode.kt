@@ -14,9 +14,12 @@ data class FlowNode(
 
 enum class NodeType {
     ENTRY_POINT,    // @Controller / @RestController 메서드
-    SERVICE,        // @Service 메서드
+    WEB_SERVICE,    // Web Layer Service (예: *WebService)
+    SERVICE,        // Domain Layer Service (@Service)
     REPOSITORY,     // @Repository / JpaRepository / *Mapper / *DAO (MyBatis)
     MAPSTRUCT,      // MapStruct Mapper (@org.mapstruct.Mapper)
+    MODEL,          // MapStruct 변환 결과 DTO / Entity
     SQL,            // 실제 SQL 쿼리 블록
+    RESPONSE,       // 진입점(Controller)이 반환하는 HTTP Response 타입
     UNKNOWN
 }

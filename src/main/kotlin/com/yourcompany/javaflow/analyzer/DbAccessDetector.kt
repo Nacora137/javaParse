@@ -38,8 +38,6 @@ object DbAccessDetector {
 
     fun isDbAccessClass(psiClass: PsiClass): Boolean {
         val name = psiClass.name ?: return false
-        // 0) MapStruct 체크 (이름에 Mapper가 포함되어도 MapStruct면 별개 처리)
-        if (isMapStruct(psiClass)) return true
 
         // 1) JPA Repository 인터페이스 상속 체크
         if (extendsJpaRepository(psiClass)) return true
@@ -48,9 +46,11 @@ object DbAccessDetector {
         if (psiClass.annotations.any { ann -> MYBATIS_ANNOTATIONS.any { it == ann.qualifiedName } }) return true
 
         // 3) 클래스명 패턴 체크 (레거시 / MyBatis 관례)
-        if (name.endsWith("Mapper") || name.endsWith("DAO") ||
-            name.endsWith("Dao") || name.endsWith("DaoImpl") ||
-            name.endsWith("Repository")
+        // 단, MapStruct는 제외 (별도로 처리)
+        if (!isMapStruct(psiClass) &&
+            (name.endsWith("Mapper") || name.endsWith("DAO") ||
+             name.endsWith("Dao") || name.endsWith("DaoImpl") ||
+             name.endsWith("Repository"))
         ) return true
 
         // 4) @Repository 어노테이션 체크
@@ -84,7 +84,7 @@ object DbAccessDetector {
             className = psiClass.qualifiedName ?: "",
             methodName = method.name
         )
-        if (!graph.hasNode(nodeId)) graph.addNode(node)
+        graph.addNode(node)
         return node
     }
 

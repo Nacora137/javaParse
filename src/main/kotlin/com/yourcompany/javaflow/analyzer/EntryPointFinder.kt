@@ -87,11 +87,11 @@ object EntryPointFinder {
         val projectScope = GlobalSearchScope.projectScope(project)
         val allScope = GlobalSearchScope.allScope(project)
 
-        result += findHttpEntryPoints(project, facade, projectScope, allScope)
-        result += findMqListeners(project, facade, projectScope, allScope)
-        result += findScheduledMethods(project, facade, projectScope, allScope)
-        result += findBatchEntryPoints(project, facade, projectScope, allScope)
-        result += findJeonmunEntryPoints(project, facade, projectScope, allScope)
+        result += findHttpEntryPoints(facade, projectScope, allScope)
+        result += findMqListeners(facade, projectScope, allScope)
+        result += findScheduledMethods(facade, projectScope, allScope)
+        result += findBatchEntryPoints(facade, projectScope, allScope)
+        result += findJeonmunEntryPoints(facade, projectScope, allScope)
 
         return result.distinctBy { "${it.method.containingClass?.qualifiedName}#${it.method.name}" }
     }
@@ -326,7 +326,7 @@ object EntryPointFinder {
             ?: annotation.findAttributeValue("path")
         return when (val text = valueAttr?.text) {
             null -> ""
-            else -> text.trim('"', '{', '}').split(",").firstOrNull()?.trim('"') ?: ""
+            else -> text.trim('"').split(",").firstOrNull()?.trim('"') ?: ""
         }
     }
 }

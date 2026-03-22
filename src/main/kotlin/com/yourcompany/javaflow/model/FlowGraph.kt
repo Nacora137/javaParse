@@ -5,10 +5,16 @@ package com.yourcompany.javaflow.model
  */
 data class FlowGraph(
     val title: String,           // 예: "GET /api/members/list"
-    val nodes: MutableList<FlowNode> = mutableListOf(),
+    private val nodesMap: MutableMap<String, FlowNode> = mutableMapOf(),
     val edges: MutableList<FlowEdge> = mutableListOf()
 ) {
-    fun addNode(node: FlowNode) = nodes.add(node)
+    val nodes: Collection<FlowNode> get() = nodesMap.values
+
+    fun addNode(node: FlowNode) {
+        nodesMap[node.id] = node
+    }
+
     fun addEdge(edge: FlowEdge) = edges.add(edge)
-    fun hasNode(id: String) = nodes.any { it.id == id }
+    fun hasNode(id: String) = nodesMap.containsKey(id)
+    fun getNode(id: String) = nodesMap[id]
 }

@@ -2,6 +2,7 @@ package com.yourcompany.javaflow.action
 
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -18,6 +19,8 @@ import java.io.File
  * Tools 메뉴에서 실행
  */
 class GenerateAllFlowsAction : AnAction() {
+
+    private val log = Logger.getInstance(GenerateAllFlowsAction::class.java)
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
@@ -43,8 +46,12 @@ class GenerateAllFlowsAction : AnAction() {
 
                 val outputDir = File(project.basePath, "flow_diagrams").also { it.mkdirs() }
                 var processed = 0
+                val failed = mutableListOf<String>()
 
                 for (entry in entryPoints) {
+                    val methodLabel = com.intellij.openapi.application.runReadAction {
+                        "${entry.method.containingClass?.name}.${entry.method.name}"
+                    }
                     try {
                         val (xml, info) = com.intellij.openapi.application.runReadAction {
                             val httpInfo = EntryPointFinder.extractHttpInfo(entry.method)
@@ -57,17 +64,20 @@ class GenerateAllFlowsAction : AnAction() {
                         val baseName = info.replace(Regex("[^a-zA-Z0-9가-힣_\\-]"), "_")
                         val outputFile = File(outputDir, "flow_${baseName}.drawio")
                         outputFile.writeText(xml, Charsets.UTF_8)
+                        processed++
                     } catch (ex: Exception) {
-                        // 개별 메서드 오류는 스킵하고 계속 진행
+                        log.warn("JavaFlow: $methodLabel 분석 실패", ex)
+                        failed.add("$methodLabel — ${ex.javaClass.simpleName}: ${ex.message}")
                     }
-                    processed++
                 }
 
                 com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+                    val failedMsg = if (failed.isEmpty()) "" else
+                        "\n\n실패 (${failed.size}개):\n" + failed.joinToString("\n") { "• $it" }
                     Messages.showInfoMessage(
                         project,
                         "${processed}개 엔드포인트 분석 완료.\n" +
-                                "파일 저장 위치: ${outputDir.absolutePath}",
+                                "파일 저장 위치: ${outputDir.absolutePath}$failedMsg",
                         "JavaFlow Visualizer ✓"
                     )
                 }

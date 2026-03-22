@@ -37,6 +37,7 @@ object CallChainTracer {
     ) {
         val entryNode = EntryPointFinder.buildEntryNode(entryMethod, graph)
         traceMethod(project, entryMethod, entryNode.id, graph, mutableSetOf(), 0)
+        addResponseNode(entryMethod, entryNode.id, graph)
     }
 
     private fun traceMethod(
@@ -87,6 +88,11 @@ object CallChainTracer {
                     if (sqlNode != null) {
                         addEdgeIfNew(dbNode.id, sqlNode.id, "executes", graph)
                     }
+                }
+
+                // MapStruct → 반환 타입 MODEL 노드 추가
+                if (nodeType == NodeType.MAPSTRUCT) {
+                    addMapStructModelNode(resolved, dbNode.id, graph)
                 }
                 continue
             }
@@ -192,9 +198,15 @@ object CallChainTracer {
 
     private fun determineNodeType(psiClass: PsiClass): NodeType {
         val annotations = psiClass.annotations.map { it.qualifiedName }
+        val className = psiClass.name ?: ""
+        val packageName = (psiClass.containingFile as? PsiJavaFile)?.packageName ?: ""
+
         return when {
-            annotations.any { it == "org.springframework.stereotype.Service" } -> NodeType.SERVICE
             annotations.any { it == "org.springframework.stereotype.Repository" } -> NodeType.REPOSITORY
+            // Web Service 판별: 클래스명에 WebService 포함 또는 web 패키지의 Service
+            annotations.any { it == "org.springframework.stereotype.Service" } &&
+                (className.contains("WebService") || packageName.contains(".web.")) -> NodeType.WEB_SERVICE
+            annotations.any { it == "org.springframework.stereotype.Service" } -> NodeType.SERVICE
             annotations.any { it == "org.springframework.stereotype.Component" } -> NodeType.SERVICE
             else -> NodeType.UNKNOWN
         }
@@ -202,6 +214,55 @@ object CallChainTracer {
 
     private fun methodSignature(method: PsiMethod): String {
         return "${method.containingClass?.qualifiedName}#${method.name}"
+    }
+
+    /**
+     * MapStruct 매퍼 메서드의 반환 타입을 MODEL 노드로 추가합니다.
+     */
+    private fun addMapStructModelNode(method: PsiMethod, mapperNodeId: String, graph: FlowGraph) {
+        val returnType = method.returnType ?: return
+        val typeName = returnType.presentableText
+        if (typeName == "void" || typeName.isBlank()) return
+
+        val returnClass = (returnType as? PsiClassType)?.resolve()
+        val fqn = returnClass?.qualifiedName ?: typeName
+        val modelNodeId = "model_$fqn"
+
+        if (!graph.hasNode(modelNodeId)) {
+            graph.addNode(FlowNode(
+                id = modelNodeId,
+                label = typeName,
+                type = NodeType.MODEL,
+                detail = "MapStruct 변환 결과",
+                className = fqn
+            ))
+        }
+        addEdgeIfNew(mapperNodeId, modelNodeId, "returns", graph)
+    }
+
+    /**
+     * 진입점 메서드의 반환 타입을 RESPONSE 노드로 추가합니다.
+     * ResponseEntity<T> 의 경우 제네릭 타입 T를 표시합니다.
+     */
+    private fun addResponseNode(entryMethod: PsiMethod, entryNodeId: String, graph: FlowGraph) {
+        val returnType = entryMethod.returnType ?: return
+        val typeName = returnType.presentableText
+        if (typeName == "void" || typeName.isBlank()) return
+
+        val displayName = if (typeName.startsWith("ResponseEntity<") && typeName.endsWith(">")) {
+            typeName.removePrefix("ResponseEntity<").removeSuffix(">")
+        } else {
+            typeName
+        }
+
+        val responseNodeId = "response_$entryNodeId"
+        graph.addNode(FlowNode(
+            id = responseNodeId,
+            label = displayName,
+            type = NodeType.RESPONSE,
+            detail = if (typeName.startsWith("ResponseEntity")) typeName else ""
+        ))
+        addEdgeIfNew(entryNodeId, responseNodeId, "returns", graph)
     }
 
     private fun addEdgeIfNew(fromId: String, toId: String, label: String, graph: FlowGraph) {
