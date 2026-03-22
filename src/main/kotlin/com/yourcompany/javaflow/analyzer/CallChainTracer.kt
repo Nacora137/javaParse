@@ -67,21 +67,26 @@ object CallChainTracer {
 
             // 표준 라이브러리 / java.* 는 스킵
             val qualifiedName = resolvedClass.qualifiedName ?: continue
-            if (qualifiedName.startsWith("java.") ||
-                qualifiedName.startsWith("javax.") ||
-                qualifiedName.startsWith("org.slf4j") ||
-                qualifiedName.startsWith("org.apache.commons")
-            ) continue
+            val packageName = (resolvedClass.containingFile as? PsiJavaFile)?.packageName ?: ""
+            
+            if (isUninteresting(resolvedClass, resolved, qualifiedName, packageName)) continue
 
-            // DB 접근 레이어 판별
-            if (DbAccessDetector.isDbAccessClass(resolvedClass)) {
+            // DB 접근 및 매퍼 레이어 판별
+            if (DbAccessDetector.isMapStruct(resolvedClass) || DbAccessDetector.isDbAccessClass(resolvedClass)) {
+                val nodeType = if (DbAccessDetector.isMapStruct(resolvedClass)) NodeType.MAPSTRUCT else NodeType.REPOSITORY
                 val dbNode = DbAccessDetector.buildDbNode(resolved, resolvedClass, graph)
+                // buildDbNode는 기본적으로 REPOSITORY 타입을 쓰므로, MAPSTRUCT면 타입을 바꿔줌
+                val updatedNode = dbNode.copy(type = nodeType)
+                graph.addNode(updatedNode) // 이미 있으면 덮어씌움 (id 동일)
+                
                 addEdgeIfNew(parentNodeId, dbNode.id, "calls", graph)
 
-                // SQL 추출
-                val sqlNode = SqlExtractor.extractSql(resolved, resolvedClass, graph)
-                if (sqlNode != null) {
-                    addEdgeIfNew(dbNode.id, sqlNode.id, "executes", graph)
+                // SQL 추출 (MapStruct는 제외)
+                if (nodeType == NodeType.REPOSITORY) {
+                    val sqlNode = SqlExtractor.extractSql(resolved, resolvedClass, graph)
+                    if (sqlNode != null) {
+                        addEdgeIfNew(dbNode.id, sqlNode.id, "executes", graph)
+                    }
                 }
                 continue
             }
@@ -103,8 +108,65 @@ object CallChainTracer {
 
             // 재귀적으로 호출 추적
             // 인터페이스 메서드인 경우 구현체 탐색
-            val implMethod = findImplementation(project, resolved) ?: resolved
+            val implMethod = findImplementation(resolved) ?: resolved
+            
             traceMethod(project, implMethod, nodeId, graph, visited, depth + 1)
+            
+            // 만약 추적 후에도 해당 노드에서 뻗어나가는 엣지가 없다면? (이건 재귀에서 처리하는게 나음)
+        }
+        
+        // 버그 3: 로깅만 있거나 외부 호출이 없는 메서드 처리
+        checkEmptyCalls(parentNodeId, graph)
+    }
+
+    private fun isUninteresting(cls: PsiClass, method: PsiMethod, fqn: String, pkg: String): Boolean {
+        // 1. 표준 라이브러리 및 공통 라이브러리
+        if (fqn.startsWith("java.") || fqn.startsWith("javax.") || 
+            fqn.startsWith("org.slf4j") || fqn.startsWith("org.apache.commons") ||
+            fqn.startsWith("org.springframework.ui") || fqn.startsWith("org.springframework.validation")
+        ) return true
+
+        // 2. 패키지 기반 필터링 (DTO, Model 등)
+        if (pkg.contains(".dto") || pkg.endsWith(".model") || pkg.contains(".domain.model")) return true
+
+        // 3. 클래스 이름 Suffix 기반 필터링
+        val name = cls.name ?: ""
+        val suffixes = listOf("Dto", "VO", "Model", "Request", "Response", "Entity", "Value", "Wrapper")
+        if (suffixes.any { name.endsWith(it) }) return true
+
+        // 4. 단순 Getter/Setter 필터링
+        if (isSimpleAccessor(method)) return true
+
+        return false
+    }
+
+    private fun isSimpleAccessor(method: PsiMethod): Boolean {
+        val name = method.name
+        if (!name.startsWith("get") && !name.startsWith("set") && !name.startsWith("is")) return false
+        
+        val body = method.body ?: return true // 세부 구현 없으면 단순 접근자로 간주
+        val statements = body.statements
+        if (statements.size > 1) return false
+        
+        // 리턴문 하나거나 필드 대입 하나인 경우
+        return true
+    }
+
+    private fun checkEmptyCalls(nodeId: String, graph: FlowGraph) {
+        // SQL 노드나 이미 "외부 호출 없음"이 달린 노드는 제외
+        if (nodeId.startsWith("sql_") || nodeId.endsWith("_empty")) return
+        
+        val hasOutgoing = graph.edges.any { it.fromId == nodeId }
+        if (!hasOutgoing) {
+            val emptyNodeId = "${nodeId}_empty"
+            if (!graph.hasNode(emptyNodeId)) {
+                graph.addNode(FlowNode(
+                    id = emptyNodeId,
+                    label = "외부 호출 없음 (Internal Only / Log)",
+                    type = NodeType.UNKNOWN
+                ))
+            }
+            addEdgeIfNew(nodeId, emptyNodeId, "", graph)
         }
     }
 
@@ -112,7 +174,7 @@ object CallChainTracer {
      * 인터페이스 메서드 → 구현체 메서드 탐색
      * 레거시 코드에서 ServiceImpl 패턴을 처리하기 위해 필요
      */
-    private fun findImplementation(project: Project, method: PsiMethod): PsiMethod? {
+    private fun findImplementation(method: PsiMethod): PsiMethod? {
         val containingClass = method.containingClass ?: return null
         if (!containingClass.isInterface) return null
 

@@ -32,6 +32,7 @@ object DrawioXmlGenerator {
         NodeType.ENTRY_POINT to "rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;",
         NodeType.SERVICE     to "rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;",
         NodeType.REPOSITORY  to "rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;",
+        NodeType.MAPSTRUCT   to "rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;",
         NodeType.SQL         to "shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;",
         NodeType.UNKNOWN     to "rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;"
     )
@@ -41,6 +42,7 @@ object DrawioXmlGenerator {
         NodeType.ENTRY_POINT,
         NodeType.SERVICE,
         NodeType.REPOSITORY,
+        NodeType.MAPSTRUCT,
         NodeType.SQL,
         NodeType.UNKNOWN
     )
@@ -171,14 +173,16 @@ object DrawioXmlGenerator {
         val typeLabels = mapOf(
             NodeType.ENTRY_POINT to "Controller (진입점)",
             NodeType.SERVICE     to "Service (비즈니스 로직)",
-            NodeType.REPOSITORY  to "Repository / DAO",
+            NodeType.REPOSITORY  to "Repository / MyBatis",
+            NodeType.MAPSTRUCT   to "MapStruct Mapper",
             NodeType.SQL         to "SQL / DB",
-            NodeType.UNKNOWN     to "기타"
+            NodeType.UNKNOWN     to "기타 / 결과 없음"
         )
         val typeFills = mapOf(
             NodeType.ENTRY_POINT to "#dae8fc",
             NodeType.SERVICE     to "#d5e8d4",
             NodeType.REPOSITORY  to "#fff2cc",
+            NodeType.MAPSTRUCT   to "#e1d5e7",
             NodeType.SQL         to "#f8cecc",
             NodeType.UNKNOWN     to "#f5f5f5"
         )

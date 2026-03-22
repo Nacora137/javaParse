@@ -5,13 +5,10 @@ import com.yourcompany.javaflow.model.FlowGraph
 import com.yourcompany.javaflow.model.FlowNode
 import com.yourcompany.javaflow.model.NodeType
 
-// DB 접근 레이어 탐지기
-//
-// 지원 패턴:
-//  1) Spring Data JPA  : JpaRepository / CrudRepository 상속
-//  2) MyBatis Mapper   : @Mapper 어노테이션 or 클래스명/*Mapper.java
-//  3) 레거시 DAO       : 클래스명 *DAO, *Dao, *DaoImpl
-//  4) JdbcTemplate     : 메서드 내 JdbcTemplate 직접 사용
+/**
+ * DB 접근 레이어 및 도메인 매퍼 탐색기
+ * (MyBatis, JPA, Legacy DAO, MapStruct 지원)
+ */
 object DbAccessDetector {
 
     private val JPA_SUPER_INTERFACES = setOf(
@@ -33,17 +30,24 @@ object DbAccessDetector {
         "java.sql.PreparedStatement"
     )
 
+    private const val MAPSTRUCT_MAPPER = "org.mapstruct.Mapper"
+
+    fun isMapStruct(psiClass: PsiClass): Boolean {
+        return psiClass.annotations.any { it.qualifiedName == MAPSTRUCT_MAPPER }
+    }
+
     fun isDbAccessClass(psiClass: PsiClass): Boolean {
         val name = psiClass.name ?: return false
-        val qualifiedName = psiClass.qualifiedName ?: ""
+        // 0) MapStruct 체크 (이름에 Mapper가 포함되어도 MapStruct면 별개 처리)
+        if (isMapStruct(psiClass)) return true
 
         // 1) JPA Repository 인터페이스 상속 체크
         if (extendsJpaRepository(psiClass)) return true
 
-        // 2) @Mapper 어노테이션 체크 (MyBatis)
+        // 2) @Mapper 어노테이션 체크 (MyBatis: org.apache.ibatis.annotations.Mapper)
         if (psiClass.annotations.any { ann -> MYBATIS_ANNOTATIONS.any { it == ann.qualifiedName } }) return true
 
-        // 3) 클래스명 패턴 체크 (레거시)
+        // 3) 클래스명 패턴 체크 (레거시 / MyBatis 관례)
         if (name.endsWith("Mapper") || name.endsWith("DAO") ||
             name.endsWith("Dao") || name.endsWith("DaoImpl") ||
             name.endsWith("Repository")
@@ -86,10 +90,19 @@ object DbAccessDetector {
 
     private fun detectDbType(psiClass: PsiClass): String {
         return when {
+            isMapStruct(psiClass) -> "MapStruct"
             extendsJpaRepository(psiClass) -> "JPA Repository"
             psiClass.annotations.any { ann -> MYBATIS_ANNOTATIONS.any { it == ann.qualifiedName } } -> "MyBatis Mapper"
             psiClass.name?.endsWith("Mapper") == true -> "MyBatis Mapper"
             else -> "DAO / JDBC"
+        }
+    }
+
+    fun determineNodeType(psiClass: PsiClass): NodeType {
+        return when {
+            isMapStruct(psiClass) -> NodeType.MAPSTRUCT
+            isDbAccessClass(psiClass) -> NodeType.REPOSITORY
+            else -> NodeType.UNKNOWN
         }
     }
 }

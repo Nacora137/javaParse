@@ -161,7 +161,7 @@ object EntryPointFinder {
     // ══════════════════════════════════════════════════════════════
 
     private fun findHttpEntryPoints(
-        project: Project, facade: JavaPsiFacade, projectScope: GlobalSearchScope, allScope: GlobalSearchScope
+        facade: JavaPsiFacade, projectScope: GlobalSearchScope, allScope: GlobalSearchScope
     ): List<EntryPointInfo> {
         val result = mutableListOf<EntryPointInfo>()
         for (annotationFqn in CONTROLLER_ANNOTATIONS) {
@@ -178,7 +178,7 @@ object EntryPointFinder {
     }
 
     private fun findMqListeners(
-        project: Project, facade: JavaPsiFacade, projectScope: GlobalSearchScope, allScope: GlobalSearchScope
+        facade: JavaPsiFacade, projectScope: GlobalSearchScope, allScope: GlobalSearchScope
     ): List<EntryPointInfo> {
         val result = mutableListOf<EntryPointInfo>()
         for (fqn in MQ_LISTENER_ANNOTATIONS + customAnnotations) {
@@ -192,7 +192,7 @@ object EntryPointFinder {
     }
 
     private fun findScheduledMethods(
-        project: Project, facade: JavaPsiFacade, projectScope: GlobalSearchScope, allScope: GlobalSearchScope
+        facade: JavaPsiFacade, projectScope: GlobalSearchScope, allScope: GlobalSearchScope
     ): List<EntryPointInfo> {
         val result = mutableListOf<EntryPointInfo>()
         val fqn = SCHEDULER_ANNOTATIONS[0] // @Scheduled
@@ -213,7 +213,7 @@ object EntryPointFinder {
     }
 
     private fun findBatchEntryPoints(
-        project: Project, facade: JavaPsiFacade, projectScope: GlobalSearchScope, allScope: GlobalSearchScope
+        facade: JavaPsiFacade, projectScope: GlobalSearchScope, allScope: GlobalSearchScope
     ): List<EntryPointInfo> {
         val result = mutableListOf<EntryPointInfo>()
         val batchMethodNames = listOf("execute", "read", "write", "process")
@@ -241,7 +241,7 @@ object EntryPointFinder {
      * - 사용자 정의 상위 클래스 상속 패턴
      */
     private fun findJeonmunEntryPoints(
-        project: Project, facade: JavaPsiFacade, projectScope: GlobalSearchScope, allScope: GlobalSearchScope
+        facade: JavaPsiFacade, projectScope: GlobalSearchScope, allScope: GlobalSearchScope
     ): List<EntryPointInfo> {
         val result = mutableListOf<EntryPointInfo>()
 

@@ -15,7 +15,8 @@ data class FlowNode(
 enum class NodeType {
     ENTRY_POINT,    // @Controller / @RestController 메서드
     SERVICE,        // @Service 메서드
-    REPOSITORY,     // @Repository / JpaRepository / *Mapper / *DAO
+    REPOSITORY,     // @Repository / JpaRepository / *Mapper / *DAO (MyBatis)
+    MAPSTRUCT,      // MapStruct Mapper (@org.mapstruct.Mapper)
     SQL,            // 실제 SQL 쿼리 블록
     UNKNOWN
 }
