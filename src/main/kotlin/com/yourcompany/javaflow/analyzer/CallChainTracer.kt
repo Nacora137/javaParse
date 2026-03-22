@@ -5,6 +5,7 @@ import com.intellij.psi.*
 import com.intellij.psi.search.searches.MethodReferencesSearch
 import com.intellij.psi.util.PsiTreeUtil
 import com.yourcompany.javaflow.model.*
+import com.yourcompany.javaflow.analyzer.DbAccessDetector
 
 /**
  * PSI를 사용해 메서드 호출 체인을 DFS로 추적합니다.
@@ -115,13 +116,16 @@ object CallChainTracer {
         val containingClass = method.containingClass ?: return null
         if (!containingClass.isInterface) return null
 
-        return MethodReferencesSearch.search(method, false)
-            .mapNotNull { ref ->
-                val element = ref.element.parent
-                if (element is PsiMethod && element.containingClass?.isInterface == false) element
-                else null
+        var result: PsiMethod? = null
+        MethodReferencesSearch.search(method, false).forEach { ref ->
+            if (result != null) return@forEach
+            val element = ref.element.parent
+            if (element is PsiMethod && element.containingClass?.isInterface == false) {
+                result = element
+                // Stop searching logic by ignoring subsequent elements
             }
-            .firstOrNull()
+        }
+        return result
     }
 
     private fun determineNodeType(psiClass: PsiClass): NodeType {

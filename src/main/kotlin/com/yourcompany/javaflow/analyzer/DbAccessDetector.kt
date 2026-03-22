@@ -5,15 +5,13 @@ import com.yourcompany.javaflow.model.FlowGraph
 import com.yourcompany.javaflow.model.FlowNode
 import com.yourcompany.javaflow.model.NodeType
 
-/**
- * DB 접근 레이어 탐지기
- *
- * 지원 패턴:
- *  1) Spring Data JPA  : JpaRepository / CrudRepository 상속
- *  2) MyBatis Mapper   : @Mapper 어노테이션 or 클래스명/*Mapper.java
- *  3) 레거시 DAO       : 클래스명 *DAO, *Dao, *DaoImpl
- *  4) JdbcTemplate     : 메서드 내 JdbcTemplate 직접 사용
- */
+// DB 접근 레이어 탐지기
+//
+// 지원 패턴:
+//  1) Spring Data JPA  : JpaRepository / CrudRepository 상속
+//  2) MyBatis Mapper   : @Mapper 어노테이션 or 클래스명/*Mapper.java
+//  3) 레거시 DAO       : 클래스명 *DAO, *Dao, *DaoImpl
+//  4) JdbcTemplate     : 메서드 내 JdbcTemplate 직접 사용
 object DbAccessDetector {
 
     private val JPA_SUPER_INTERFACES = setOf(
@@ -68,9 +66,7 @@ object DbAccessDetector {
         return checkSuperInterfaces(psiClass, mutableSetOf())
     }
 
-    /**
-     * DB 접근 메서드를 FlowNode로 변환합니다.
-     */
+    // DB 접근 메서드를 FlowNode로 변환합니다.
     fun buildDbNode(method: PsiMethod, psiClass: PsiClass, graph: FlowGraph): FlowNode {
         val nodeId = "db_${psiClass.qualifiedName}_${method.name}"
         val label = "${psiClass.name}.${method.name}()"

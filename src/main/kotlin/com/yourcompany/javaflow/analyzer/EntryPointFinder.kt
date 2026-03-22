@@ -165,8 +165,8 @@ object EntryPointFinder {
         val result = mutableListOf<EntryPointInfo>()
         for (annotationFqn in CONTROLLER_ANNOTATIONS) {
             val annClass = facade.findClass(annotationFqn, scope) ?: continue
-            AnnotatedElementsSearch.searchPsiClasses(annClass, scope).forEach { psiClass ->
-                psiClass.methods.forEach { method ->
+            for (psiClass in AnnotatedElementsSearch.searchPsiClasses(annClass, scope).toList()) {
+                for (method in psiClass.methods) {
                     if (hasMappingAnnotation(method)) {
                         result.add(EntryPointInfo(method, EntryPointType.HTTP, extractHttpInfo(method)))
                     }
@@ -182,7 +182,7 @@ object EntryPointFinder {
         val result = mutableListOf<EntryPointInfo>()
         for (fqn in MQ_LISTENER_ANNOTATIONS + customAnnotations) {
             val annClass = facade.findClass(fqn, scope) ?: continue
-            AnnotatedElementsSearch.searchPsiMethods(annClass, scope).forEach { method ->
+            for (method in AnnotatedElementsSearch.searchPsiMethods(annClass, scope).toList()) {
                 val destination = extractDestination(method, fqn)
                 result.add(EntryPointInfo(method, EntryPointType.MQ, "MQ: $destination"))
             }
@@ -196,7 +196,7 @@ object EntryPointFinder {
         val result = mutableListOf<EntryPointInfo>()
         val fqn = SCHEDULER_ANNOTATIONS[0] // @Scheduled
         val annClass = facade.findClass(fqn, scope) ?: return result
-        AnnotatedElementsSearch.searchPsiMethods(annClass, scope).forEach { method ->
+        for (method in AnnotatedElementsSearch.searchPsiMethods(annClass, scope).toList()) {
             val cron = method.getAnnotation(fqn)
                 ?.findAttributeValue("cron")?.text?.trim('"') ?: ""
             val fixedRate = method.getAnnotation(fqn)
@@ -215,18 +215,20 @@ object EntryPointFinder {
         project: Project, facade: JavaPsiFacade, scope: GlobalSearchScope
     ): List<EntryPointInfo> {
         val result = mutableListOf<EntryPointInfo>()
+        val batchMethodNames = listOf("execute", "read", "write", "process")
         for (interfaceFqn in BATCH_INTERFACES) {
             val interfaceClass = facade.findClass(interfaceFqn, scope) ?: continue
-            ClassInheritorsSearch.search(interfaceClass, scope, true).forEach { implClass ->
-                implClass.methods
-                    .filter { m -> !m.hasModifierProperty(PsiModifier.ABSTRACT) }
-                    .filter { m -> m.name in listOf("execute", "read", "write", "process") }
-                    .forEach { method ->
+            for (implClass in ClassInheritorsSearch.search(interfaceClass, scope, true).toList()) {
+                for (method in implClass.methods) {
+                    if (!method.hasModifierProperty(PsiModifier.ABSTRACT) &&
+                        method.name in batchMethodNames
+                    ) {
                         result.add(EntryPointInfo(
                             method, EntryPointType.BATCH,
                             "Batch: ${interfaceClass.name}.${method.name}()"
                         ))
                     }
+                }
             }
         }
         return result
@@ -245,17 +247,18 @@ object EntryPointFinder {
         // 사용자 정의 상위 클래스 기반
         for (superFqn in customSuperClasses) {
             val superClass = facade.findClass(superFqn, scope) ?: continue
-            ClassInheritorsSearch.search(superClass, scope, true).forEach { implClass ->
-                implClass.methods
-                    .filter { m -> m.hasModifierProperty(PsiModifier.PUBLIC) &&
-                            !m.hasModifierProperty(PsiModifier.ABSTRACT) &&
-                            !m.hasModifierProperty(PsiModifier.STATIC) }
-                    .forEach { method ->
+            for (implClass in ClassInheritorsSearch.search(superClass, scope, true).toList()) {
+                for (method in implClass.methods) {
+                    if (method.hasModifierProperty(PsiModifier.PUBLIC) &&
+                        !method.hasModifierProperty(PsiModifier.ABSTRACT) &&
+                        !method.hasModifierProperty(PsiModifier.STATIC)
+                    ) {
                         result.add(EntryPointInfo(
                             method, EntryPointType.JEONMUN,
                             "전문: ${superClass.name} impl"
                         ))
                     }
+                }
             }
         }
         return result

@@ -42,14 +42,14 @@ class GenerateAllFlowsAction : AnAction() {
                 val outputDir = File(project.basePath, "flow_diagrams").also { it.mkdirs() }
                 var processed = 0
 
-                for (method in entryPoints) {
-                    val httpInfo = EntryPointFinder.extractHttpInfo(method)
+                for (entry in entryPoints) {
+                    val httpInfo = EntryPointFinder.extractHttpInfo(entry.method)
                     indicator.text = "분석: $httpInfo"
                     indicator.fraction = processed.toDouble() / entryPoints.size
 
                     try {
                         val graph = FlowGraph(title = httpInfo)
-                        CallChainTracer.trace(project, method, graph)
+                        CallChainTracer.trace(project, entry.method, graph)
                         val xml = DrawioXmlGenerator.generate(graph)
 
                         val baseName = httpInfo.replace(Regex("[^a-zA-Z0-9가-힣_\\-]"), "_")

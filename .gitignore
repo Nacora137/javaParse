@@ -1,0 +1,30 @@
+# Gradle
+.gradle/
+build/
+
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# Kotlin
+/bin/
+/gen/
+/out/
+*.kotlin_module
+
+# JavaFlow Visualizer Specific
+*.drawio
+/flow_diagrams/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# OS-specific
+.antigravity/
+.gemini/

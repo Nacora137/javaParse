@@ -21,7 +21,7 @@ class FlowToolWindowFactory : ToolWindowFactory {
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val panel = createWelcomePanel()
-        val content = ContentFactory.getInstance().createContent(panel, "Flow Diagram", false)
+        val content = getContentFactory().createContent(panel, "Flow Diagram", false)
         toolWindow.contentManager.addContent(content)
     }
 
@@ -31,7 +31,8 @@ class FlowToolWindowFactory : ToolWindowFactory {
             add(
                 JLabel(
                     "<html><b>JavaFlow Visualizer</b><br/><br/>" +
-                            "Controller 메서드에서 우클릭 → <i>Generate Flow Diagram (draw.io)</i> 를 실행하세요.<br/>" +
+                            "분석하려는 메서드 안에 커서를 두고<br/>" +
+                            "우클릭 → <i>Generate Flow Diagram (draw.io)</i> 를 실행하세요.<br/>" +
                             "분석 결과가 여기에 표시됩니다.</html>"
                 ),
                 BorderLayout.CENTER
@@ -43,15 +44,20 @@ class FlowToolWindowFactory : ToolWindowFactory {
         private const val TOOL_WINDOW_ID = "JavaFlow"
 
         /**
-         * 분석 완료 후 Tool Window에 결과를 표시합니다.
+         * ContentFactory 획득 (IntelliJ 2021.1 SDK 기준)
          */
+        @Suppress("DEPRECATION")
+        fun getContentFactory(): ContentFactory {
+            return ContentFactory.SERVICE.getInstance()
+        }
+
         fun showResult(project: Project, graph: FlowGraph, xml: String, filePath: String) {
             val toolWindowManager = ToolWindowManager.getInstance(project)
             val toolWindow = toolWindowManager.getToolWindow(TOOL_WINDOW_ID) ?: return
             toolWindow.contentManager.removeAllContents(true)
 
-            val panel = buildResultPanel(graph, xml, filePath, project)
-            val content = ContentFactory.getInstance().createContent(panel, graph.title, false)
+            val panel = buildResultPanel(graph, xml, filePath)
+            val content = getContentFactory().createContent(panel, graph.title, false)
             toolWindow.contentManager.addContent(content)
             toolWindow.show()
         }
@@ -59,8 +65,7 @@ class FlowToolWindowFactory : ToolWindowFactory {
         private fun buildResultPanel(
             graph: FlowGraph,
             xml: String,
-            filePath: String,
-            project: Project
+            filePath: String
         ): JPanel {
             return JPanel(BorderLayout(0, 8)).apply {
                 border = EmptyBorder(10, 10, 10, 10)
@@ -84,22 +89,19 @@ class FlowToolWindowFactory : ToolWindowFactory {
                 }
                 add(scrollPane, BorderLayout.CENTER)
 
-                // 하단: 버튼 패널
+                // 하단: 버튼
                 val buttonPanel = JPanel(FlowLayout(FlowLayout.LEFT, 8, 0))
 
-                // XML 클립보드 복사
-                val copyBtn = JButton("XML 복사 (draw.io 붙여넣기)").apply {
+                buttonPanel.add(JButton("XML 복사 (draw.io 붙여넣기)").apply {
                     toolTipText = "생성된 XML을 클립보드에 복사합니다. draw.io > Extras > Edit Diagram에 붙여넣으세요."
                     addActionListener {
                         val sel = StringSelection(xml)
                         Toolkit.getDefaultToolkit().systemClipboard.setContents(sel, sel)
-                        JOptionPane.showMessageDialog(null, "clipboard에 복사되었습니다!")
+                        JOptionPane.showMessageDialog(null, "클립보드에 복사되었습니다!")
                     }
-                }
-                buttonPanel.add(copyBtn)
+                })
 
-                // 파일 탐색기에서 열기
-                val openBtn = JButton("파일 위치 열기").apply {
+                buttonPanel.add(JButton("파일 위치 열기").apply {
                     addActionListener {
                         try {
                             java.awt.Desktop.getDesktop().open(java.io.File(filePath).parentFile)
@@ -107,11 +109,9 @@ class FlowToolWindowFactory : ToolWindowFactory {
                             JOptionPane.showMessageDialog(null, "파일 탐색기를 열 수 없습니다: ${ex.message}")
                         }
                     }
-                }
-                buttonPanel.add(openBtn)
+                })
 
-                // 노드 목록 표시 버튼
-                val listBtn = JButton("노드 목록 보기").apply {
+                buttonPanel.add(JButton("노드 목록 보기").apply {
                     addActionListener {
                         val sb = StringBuilder("<html><table border='1' cellpadding='3'>")
                         sb.append("<tr><th>레이어</th><th>이름</th><th>상세</th></tr>")
@@ -119,11 +119,12 @@ class FlowToolWindowFactory : ToolWindowFactory {
                             sb.append("<tr><td>${node.type}</td><td>${escapeHtml(node.label)}</td><td>${escapeHtml(node.detail)}</td></tr>")
                         }
                         sb.append("</table></html>")
-                        val label = JLabel(sb.toString())
-                        JOptionPane.showMessageDialog(null, JScrollPane(label), "노드 목록", JOptionPane.PLAIN_MESSAGE)
+                        JOptionPane.showMessageDialog(
+                            null, JScrollPane(JLabel(sb.toString())),
+                            "노드 목록", JOptionPane.PLAIN_MESSAGE
+                        )
                     }
-                }
-                buttonPanel.add(listBtn)
+                })
 
                 add(buttonPanel, BorderLayout.SOUTH)
             }
