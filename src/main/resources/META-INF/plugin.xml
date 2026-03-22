@@ -1,0 +1,56 @@
+<idea-plugin>
+    <id>com.yourcompany.javaflow-visualizer</id>
+    <name>JavaFlow Visualizer</name>
+    <vendor email="you@yourcompany.com" url="https://yourcompany.com">YourCompany</vendor>
+    <version>1.0.0</version>
+
+    <description><![CDATA[
+        레거시 Java/Spring 프로젝트에서 진입점(HTTP Controller, MQ 리스너, Scheduler, Batch, 전문통신)
+        부터 Service → Repository/Mapper → DB SQL까지의 전체 호출 흐름을 자동 분석하여
+        draw.io(.drawio) 다이어그램 파일로 내보냅니다.<br><br>
+        <b>사용법</b>: 분석하려는 메서드에 커서를 두고 우클릭 → "Generate Flow Diagram (draw.io)"
+    ]]></description>
+
+    <idea-version since-build="211"/>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- 하단 Tool Window -->
+        <toolWindow
+            id="JavaFlow"
+            anchor="bottom"
+            factoryClass="com.yourcompany.javaflow.ui.FlowToolWindowFactory"
+            icon="/icons/flow.svg"
+        />
+        <!-- Settings > Tools > JavaFlow Visualizer (전문통신 설정) -->
+        <applicationConfigurable
+            id="com.yourcompany.javaflow.settings"
+            parentId="tools"
+            instance="com.yourcompany.javaflow.ui.JeonmunConfigurable"
+            displayName="JavaFlow Visualizer"
+        />
+    </extensions>
+
+    <actions>
+        <!-- 단일 메서드 분석: 에디터 우클릭 + Tools 메뉴 -->
+        <action
+            id="com.yourcompany.javaflow.action.GenerateFlowAction"
+            class="com.yourcompany.javaflow.action.GenerateFlowAction"
+            text="Generate Flow Diagram (draw.io)"
+            description="현재 메서드(HTTP/MQ/전문통신 등)의 E2E 흐름을 draw.io 다이어그램으로 생성합니다">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+
+        <!-- 전체 프로젝트 일괄 분석 -->
+        <action
+            id="com.yourcompany.javaflow.action.GenerateAllFlowsAction"
+            class="com.yourcompany.javaflow.action.GenerateAllFlowsAction"
+            text="Generate All Flow Diagrams (draw.io)"
+            description="프로젝트 전체 진입점의 E2E 흐름을 draw.io 다이어그램으로 일괄 생성합니다">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
