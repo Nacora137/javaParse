@@ -28,13 +28,13 @@ dependencies {
 
 tasks {
     withType<JavaCompile> {
-        sourceCompatibility = "8"   // 레거시 시스템 Java 8 대응
-        targetCompatibility = "8"
+        sourceCompatibility = "1.8"   // 레거시 시스템 Java 8 대응
+        targetCompatibility = "1.8"
     }
 
     withType<KotlinCompile> {
         kotlinOptions {
-            jvmTarget = "8"
+            jvmTarget = "1.8"         // Kotlin 1.9+: "8" 대신 "1.8" 사용
             freeCompilerArgs = listOf("-Xjvm-default=all")
         }
     }
