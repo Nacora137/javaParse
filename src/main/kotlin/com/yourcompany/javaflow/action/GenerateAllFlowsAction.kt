@@ -27,7 +27,9 @@ class GenerateAllFlowsAction : AnAction() {
                 indicator.isIndeterminate = false
                 indicator.text = "Controller 메서드 탐색 중..."
 
-                val entryPoints = EntryPointFinder.findAllEntryPoints(project)
+                val entryPoints = com.intellij.openapi.application.runReadAction {
+                    EntryPointFinder.findAllEntryPoints(project)
+                }
                 if (entryPoints.isEmpty()) {
                     com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
                         Messages.showWarningDialog(
@@ -43,16 +45,16 @@ class GenerateAllFlowsAction : AnAction() {
                 var processed = 0
 
                 for (entry in entryPoints) {
-                    val httpInfo = EntryPointFinder.extractHttpInfo(entry.method)
-                    indicator.text = "분석: $httpInfo"
-                    indicator.fraction = processed.toDouble() / entryPoints.size
-
                     try {
-                        val graph = FlowGraph(title = httpInfo)
-                        CallChainTracer.trace(project, entry.method, graph)
-                        val xml = DrawioXmlGenerator.generate(graph)
+                        val (xml, info) = com.intellij.openapi.application.runReadAction {
+                            val httpInfo = EntryPointFinder.extractHttpInfo(entry.method)
+                            val graph = FlowGraph(title = httpInfo)
+                            CallChainTracer.trace(project, entry.method, graph)
+                            Pair(DrawioXmlGenerator.generate(graph), httpInfo)
+                        }
 
-                        val baseName = httpInfo.replace(Regex("[^a-zA-Z0-9가-힣_\\-]"), "_")
+                        indicator.text = "분석 완료: $info"
+                        val baseName = info.replace(Regex("[^a-zA-Z0-9가-힣_\\-]"), "_")
                         val outputFile = File(outputDir, "flow_${baseName}.drawio")
                         outputFile.writeText(xml, Charsets.UTF_8)
                     } catch (ex: Exception) {

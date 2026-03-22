@@ -75,13 +75,15 @@ class GenerateFlowAction : AnAction() {
                 indicator.isIndeterminate = true
                 indicator.text = "[$typeLabel] ${targetMethod.name} 분석 중..."
 
-                val title = buildTitle(targetMethod, entryType)
-                val graph = FlowGraph(title = title)
+                val (graph, xml, title) = com.intellij.openapi.application.runReadAction {
+                    val t = buildTitle(targetMethod, entryType)
+                    val g = FlowGraph(title = t)
+                    CallChainTracer.trace(project, targetMethod, g)
+                    val x = DrawioXmlGenerator.generate(g)
+                    Triple(g, x, t)
+                }
 
-                CallChainTracer.trace(project, targetMethod, graph)
-
-                indicator.text = "draw.io XML 생성 중..."
-                val xml = DrawioXmlGenerator.generate(graph)
+                indicator.text = "파일 저장 중..."
 
                 val baseName = title.replace(Regex("[^a-zA-Z0-9가-힣_\\-]"), "_")
                 val outputFile = File(project.basePath, "flow_${baseName}.drawio")
