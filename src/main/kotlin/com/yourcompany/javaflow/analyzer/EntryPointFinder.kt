@@ -84,13 +84,14 @@ object EntryPointFinder {
     fun findAllEntryPoints(project: Project): List<EntryPointInfo> {
         val result = mutableListOf<EntryPointInfo>()
         val facade = JavaPsiFacade.getInstance(project)
-        val scope = GlobalSearchScope.projectScope(project)
+        val projectScope = GlobalSearchScope.projectScope(project)
+        val allScope = GlobalSearchScope.allScope(project)
 
-        result += findHttpEntryPoints(project, facade, scope)
-        result += findMqListeners(project, facade, scope)
-        result += findScheduledMethods(project, facade, scope)
-        result += findBatchEntryPoints(project, facade, scope)
-        result += findJeonmunEntryPoints(project, facade, scope)
+        result += findHttpEntryPoints(project, facade, projectScope, allScope)
+        result += findMqListeners(project, facade, projectScope, allScope)
+        result += findScheduledMethods(project, facade, projectScope, allScope)
+        result += findBatchEntryPoints(project, facade, projectScope, allScope)
+        result += findJeonmunEntryPoints(project, facade, projectScope, allScope)
 
         return result.distinctBy { "${it.method.containingClass?.qualifiedName}#${it.method.name}" }
     }
@@ -160,12 +161,12 @@ object EntryPointFinder {
     // ══════════════════════════════════════════════════════════════
 
     private fun findHttpEntryPoints(
-        project: Project, facade: JavaPsiFacade, scope: GlobalSearchScope
+        project: Project, facade: JavaPsiFacade, projectScope: GlobalSearchScope, allScope: GlobalSearchScope
     ): List<EntryPointInfo> {
         val result = mutableListOf<EntryPointInfo>()
         for (annotationFqn in CONTROLLER_ANNOTATIONS) {
-            val annClass = facade.findClass(annotationFqn, scope) ?: continue
-            for (psiClass in AnnotatedElementsSearch.searchPsiClasses(annClass, scope).toList()) {
+            val annClass = facade.findClass(annotationFqn, allScope) ?: continue
+            for (psiClass in AnnotatedElementsSearch.searchPsiClasses(annClass, projectScope).toList()) {
                 for (method in psiClass.methods) {
                     if (hasMappingAnnotation(method)) {
                         result.add(EntryPointInfo(method, EntryPointType.HTTP, extractHttpInfo(method)))
@@ -177,12 +178,12 @@ object EntryPointFinder {
     }
 
     private fun findMqListeners(
-        project: Project, facade: JavaPsiFacade, scope: GlobalSearchScope
+        project: Project, facade: JavaPsiFacade, projectScope: GlobalSearchScope, allScope: GlobalSearchScope
     ): List<EntryPointInfo> {
         val result = mutableListOf<EntryPointInfo>()
         for (fqn in MQ_LISTENER_ANNOTATIONS + customAnnotations) {
-            val annClass = facade.findClass(fqn, scope) ?: continue
-            for (method in AnnotatedElementsSearch.searchPsiMethods(annClass, scope).toList()) {
+            val annClass = facade.findClass(fqn, allScope) ?: continue
+            for (method in AnnotatedElementsSearch.searchPsiMethods(annClass, projectScope).toList()) {
                 val destination = extractDestination(method, fqn)
                 result.add(EntryPointInfo(method, EntryPointType.MQ, "MQ: $destination"))
             }
@@ -191,12 +192,12 @@ object EntryPointFinder {
     }
 
     private fun findScheduledMethods(
-        project: Project, facade: JavaPsiFacade, scope: GlobalSearchScope
+        project: Project, facade: JavaPsiFacade, projectScope: GlobalSearchScope, allScope: GlobalSearchScope
     ): List<EntryPointInfo> {
         val result = mutableListOf<EntryPointInfo>()
         val fqn = SCHEDULER_ANNOTATIONS[0] // @Scheduled
-        val annClass = facade.findClass(fqn, scope) ?: return result
-        for (method in AnnotatedElementsSearch.searchPsiMethods(annClass, scope).toList()) {
+        val annClass = facade.findClass(fqn, allScope) ?: return result
+        for (method in AnnotatedElementsSearch.searchPsiMethods(annClass, projectScope).toList()) {
             val cron = method.getAnnotation(fqn)
                 ?.findAttributeValue("cron")?.text?.trim('"') ?: ""
             val fixedRate = method.getAnnotation(fqn)
@@ -212,13 +213,13 @@ object EntryPointFinder {
     }
 
     private fun findBatchEntryPoints(
-        project: Project, facade: JavaPsiFacade, scope: GlobalSearchScope
+        project: Project, facade: JavaPsiFacade, projectScope: GlobalSearchScope, allScope: GlobalSearchScope
     ): List<EntryPointInfo> {
         val result = mutableListOf<EntryPointInfo>()
         val batchMethodNames = listOf("execute", "read", "write", "process")
         for (interfaceFqn in BATCH_INTERFACES) {
-            val interfaceClass = facade.findClass(interfaceFqn, scope) ?: continue
-            for (implClass in ClassInheritorsSearch.search(interfaceClass, scope, true).toList()) {
+            val interfaceClass = facade.findClass(interfaceFqn, allScope) ?: continue
+            for (implClass in ClassInheritorsSearch.search(interfaceClass, projectScope, true).toList()) {
                 for (method in implClass.methods) {
                     if (!method.hasModifierProperty(PsiModifier.ABSTRACT) &&
                         method.name in batchMethodNames
@@ -240,14 +241,14 @@ object EntryPointFinder {
      * - 사용자 정의 상위 클래스 상속 패턴
      */
     private fun findJeonmunEntryPoints(
-        project: Project, facade: JavaPsiFacade, scope: GlobalSearchScope
+        project: Project, facade: JavaPsiFacade, projectScope: GlobalSearchScope, allScope: GlobalSearchScope
     ): List<EntryPointInfo> {
         val result = mutableListOf<EntryPointInfo>()
 
         // 사용자 정의 상위 클래스 기반
         for (superFqn in customSuperClasses) {
-            val superClass = facade.findClass(superFqn, scope) ?: continue
-            for (implClass in ClassInheritorsSearch.search(superClass, scope, true).toList()) {
+            val superClass = facade.findClass(superFqn, allScope) ?: continue
+            for (implClass in ClassInheritorsSearch.search(superClass, projectScope, true).toList()) {
                 for (method in implClass.methods) {
                     if (method.hasModifierProperty(PsiModifier.PUBLIC) &&
                         !method.hasModifierProperty(PsiModifier.ABSTRACT) &&
